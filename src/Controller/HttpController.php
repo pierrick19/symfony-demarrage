@@ -3,9 +3,11 @@
 namespace App\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 
 /**
@@ -119,8 +121,137 @@ class HttpController extends AbstractController
             // $this->render() retourne un objet instance de la classe Response
             // dont le contenu est le HTML construit par le template
             return $this->render('http/response.html.twig');
+            // http://127.0.0.1:8000/http/response?type=json
+        } elseif ($request->query->get('type') == 'json') {
+            $reponse = [
+                'nom' => 'Marx',
+                'prenom' => 'Groucho'
+            ];
+
+            //return new Response(json_encode($response));
+
+            // encode le tableau $reponse en json
+            // et retourne une réponse avec l'entête HTTP Content-Type application/json
+            return new JsonResponse($reponse);
+            // http://127.0.0.1:8000/http/response?found=no
+        } elseif ($request->query->get('found') == 'no') {
+            // pour retourner une 404, on jette cette exception
+            throw new NotFoundHttpException();
+            // http://127.0.0.1:8000/http/response?redirect=index
+        } elseif ($request->query->get('redirect') == 'index') {
+            // redirection en passant le nom de la route de la page:
+            // app_index_index : IndexController::index()
+            return $this->redirectToRoute('app_index_index');
+        } elseif ($request->query->get('redirect') == 'bonjour') {
+            // redirection vers une route qui contient une partie variable :
+            return $this->redirectToRoute(
+                'app_index_bonjour',
+                [
+                    'qui' => 'le monde'
+                ]
+            );
         }
 
         return $response;
     }
+
+    /**
+     * @Route("/flash")
+     */
+    public function flash()
+    {
+        // enregistre un message dans la session
+        $this->addFlash('success', 'Message de confirmation');
+        $this->addFlash('success', 'Autre message de confirmation');
+        $this->addFlash('error', "Message d'erreur");
+
+        return $this->redirectToRoute('app_http_flashed');
+    }
+
+    /**
+     * @Route("/flashed")
+     */
+    public function flashed(SessionInterface $session)
+    {
+                    // dump($session->all());
+                    // dump($_SESSION);
+        //$messages = $session->getFlashBag()->all();
+                    //var_dump($messages);
+
+        //foreach ($messages as $type => $messages) {
+         //   echo '<strong>'.$type.':<br></strong>';
+         //   foreach ($messages as $key => $message){
+         //       echo $message.':<br>';
+
+        //    }
+        //}
+
+
+        return $this->render('http/flashed.html.twig');
+    }
+
+
+    /**
+     * @Route("/formulaire")
+     *
+     * @return Response
+     */
+    public function formulaire(Request $request)
+    {
+        $erreur='';
+
+        if($request->isMethod('POST')) {
+            $email = $request->request->get('email');
+            $message = $request->request->get('message');
+
+            if(!empty($email) && !empty($message)){
+                $session=$request->getSession();
+                $session->set('email', $email);
+                $session->set('message', $message);
+
+                 return $this->redirectToRoute('app_http_resultat');
+            } else {
+
+                $erreur = 'Tous les champs sont obligatoires';
+            }
+
+        }
+
+        return $this->render(
+            'http/formulaire.html.twig',
+        ['erreur' => $erreur]
+        );
+    }
+
+    /**
+     * @Route("/resultat")
+     *
+     */
+    public function resultat(SessionInterface $session)
+    {
+        if(empty($session->all()))
+         {
+
+           return $this->redirectToRoute('app_http_formulaire');
+        }
+
+        $email=$session->get('email');
+        $message=$session->get('message');
+
+        $session->clear();
+
+        dump($session->all());
+        return $this->render(
+            'http/resultat.html.twig',
+            [
+                'email' => $email,
+                'message' => $message
+            ]
+        );
+    }
+
+
+
+
+
 }
